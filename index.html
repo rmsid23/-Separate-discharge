@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>이건 어디에 버려? - AI 쓰레기 분리배출 도우미</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Google Fonts (Noto Sans KR) -->
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Noto Sans KR"', 'sans-serif'],
+          },
+          colors: {
+            eco: {
+              50: '#f0fdf4',
+              100: '#dcfce7',
+              200: '#bbf7d0',
+              500: '#22c55e',
+              600: '#16a34a',
+              700: '#15803d',
+              800: '#166534',
+              900: '#14532d',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'Noto Sans KR', sans-serif; }
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f1f1; }
+    ::-webkit-scrollbar-thumb { background: #16a34a; border-radius: 4px; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+  <!-- Top Navigation Header -->
+  <header class="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-sm">
+    <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center space-x-2">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-eco-600 to-emerald-400 flex items-center justify-center text-white shadow-md shadow-eco-500/20">
+          <i class="fa-solid font-bold fa-recycle text-xl"></i>
+        </div>
+        <div>
+          <h1 class="text-xl font-extrabold tracking-tight text-slate-900 leading-none">이건 어디에 버려?</h1>
+          <p class="text-xs text-eco-700 font-medium">AI 올바른 분리배출 판별기</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button id="showArchitectureBtn" title="배포 서버리스 구조 확인" class="px-3 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors flex items-center gap-1.5">
+          <i class="fa-solid fa-server text-eco-600"></i>
+          <span class="hidden sm:inline">Vercel 구조 안내</span>
+        </button>
+        <button id="settingsBtn" title="API 설정" class="p-2 text-slate-500 hover:text-eco-600 hover:bg-eco-50 rounded-lg transition-colors">
+          <i class="fa-solid fa-sliders text-lg"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="flex-1 max-w-4xl w-full mx-auto p-4 md:p-6 space-y-6">
+
+    <!-- Hero / Main Input Card -->
+    <section class="bg-white rounded-2xl p-6 shadow-xl shadow-slate-200/50 border border-slate-100 relative overflow-hidden">
+      <div class="absolute -right-12 -bottom-12 w-40 h-40 bg-eco-100 rounded-full blur-2xl opacity-60 pointer-events-none"></div>
+
+      <div class="text-center max-w-lg mx-auto mb-6">
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-eco-100 text-eco-800 mb-2">
+          <i class="fa-solid fa-wand-magic-sparkles"></i> AI 실시간 비전 판별
+        </span>
+        <h2 class="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
+          쓰레기 사진만 찍으면<br/><span class="text-eco-600">올바른 분리배출 방법</span>을 판별해요!
+        </h2>
+        <p class="text-sm text-slate-500 mt-2">
+          환경부 가이드라인을 기반으로 페트병, 컵라면, 전지류 등 헷갈리는 품목의 재질별 배출법을 안내합니다.
+        </p>
+      </div>
+
+      <!-- Drag and Drop / Image Capture Area -->
+      <div id="dropZone" class="border-2 border-dashed border-slate-300 hover:border-eco-500 bg-slate-50 hover:bg-eco-50/50 rounded-2xl p-6 text-center transition-all cursor-pointer relative group">
+        <input type="file" id="imageInput" accept="image/*" capture="environment" class="hidden">
+        
+        <div id="uploadPlaceholder" class="space-y-4 py-4">
+          <div class="w-16 h-16 mx-auto rounded-full bg-white shadow-md flex items-center justify-center text-eco-600 group-hover:scale-110 transition-transform">
+            <i class="fa-solid fa-camera text-2xl"></i>
+          </div>
+          <div>
+            <p class="text-base font-bold text-slate-700">사진 촬영 또는 파일 선택</p>
+            <p class="text-xs text-slate-400 mt-1">여기로 이미지를 드래그하거나 클릭하여 선택하세요</p>
+          </div>
+          <div class="flex items-center justify-center gap-3 pt-2">
+            <span class="px-4 py-2 bg-eco-600 hover:bg-eco-700 text-white font-semibold text-xs rounded-xl shadow-md transition-colors flex items-center gap-1.5">
+              <i class="fa-solid fa-camera"></i> 사진 찍기
+            </span>
+            <span class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold text-xs rounded-xl transition-colors flex items-center gap-1.5">
+              <i class="fa-solid fa-image"></i> 갤러리 탐색
+            </span>
+          </div>
+        </div>
+
+        <!-- Image Preview Container -->
+        <div id="previewContainer" class="hidden relative max-w-sm mx-auto">
+          <img id="imagePreview" class="w-full h-64 object-cover rounded-xl shadow-lg border border-slate-200" alt="분석할 쓰레기 이미지">
+          <button id="removeImageBtn" class="absolute -top-3 -right-3 bg-red-500 hover:bg-red-600 text-white w-8 h-8 rounded-full shadow-md flex items-center justify-center transition-transform hover:scale-110">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick Preset Sample Buttons -->
+      <div class="mt-5 pt-4 border-t border-slate-100">
+        <p class="text-xs font-bold text-slate-400 mb-2.5 flex items-center gap-1">
+          <i class="fa-solid fa-lightbulb text-amber-400"></i> 샘플로 빠르게 체험해보기:
+        </p>
+        <div class="flex flex-wrap gap-2" id="sampleButtons">
+          <button data-sample="pet" class="px-3 py-1.5 bg-slate-100 hover:bg-eco-100 text-slate-700 hover:text-eco-800 text-xs font-semibold rounded-lg transition-colors border border-slate-200 flex items-center gap-1.5">
+            🥤 라벨 있는 투명 페트병
+          </button>
+          <button data-sample="noodle" class="px-3 py-1.5 bg-slate-100 hover:bg-eco-100 text-slate-700 hover:text-eco-800 text-xs font-semibold rounded-lg transition-colors border border-slate-200 flex items-center gap-1.5">
+            🍜 국물 묻은 컵라면 용기
+          </button>
+          <button data-sample="battery" class="px-3 py-1.5 bg-slate-100 hover:bg-eco-100 text-slate-700 hover:text-eco-800 text-xs font-semibold rounded-lg transition-colors border border-slate-200 flex items-center gap-1.5">
+            🔋 사용한 폐건전지
+          </button>
+          <button data-sample="box" class="px-3 py-1.5 bg-slate-100 hover:bg-eco-100 text-slate-700 hover:text-eco-800 text-xs font-semibold rounded-lg transition-colors border border-slate-200 flex items-center gap-1.5">
+            📦 테이프 붙은 택배상자
+          </button>
+        </div>
+      </div>
+
+      <!-- Action Button -->
+      <div class="mt-6 text-center">
+        <button id="analyzeBtn" disabled class="w-full md:w-auto px-8 py-3.5 bg-slate-300 text-slate-500 font-bold rounded-xl shadow-lg cursor-not-allowed transition-all flex items-center justify-center gap-2 text-base mx-auto">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <span>분리배출 방법 AI 분석하기</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Loading Spinner State -->
+    <section id="loadingSection" class="hidden bg-white rounded-2xl p-8 text-center border border-slate-100 shadow-md space-y-4">
+      <div class="inline-block relative w-16 h-16">
+        <div class="w-16 h-16 rounded-full border-4 border-eco-200 border-t-eco-600 animate-spin"></div>
+        <i class="fa-solid fa-leaf text-eco-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-lg"></i>
+      </div>
+      <div>
+        <h3 class="text-lg font-bold text-slate-800">AI가 사진 속 쓰레기를 정밀 분석 중입니다...</h3>
+        <p class="text-xs text-slate-500 mt-1">서버리스 함수(api/generate.js) 및 Gemini Vision 모델 처리 중</p>
+      </div>
+      <div class="bg-eco-50 rounded-xl p-3 max-w-md mx-auto text-xs text-eco-800 font-medium">
+        💡 <span id="ecoTipText">투명 페트병은 라벨을 떼고 압착하여 전용 수거함에 배출해야 고품질 재활용이 가능합니다!</span>
+      </div>
+    </section>
+
+    <!-- AI Analysis Result Section -->
+    <section id="resultSection" class="hidden space-y-6">
+      <div class="bg-white rounded-2xl p-6 shadow-xl border border-slate-100 relative overflow-hidden">
+        <div id="categoryHeaderBg" class="absolute top-0 left-0 w-full h-3 bg-eco-500"></div>
+
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+          <div>
+            <div class="flex items-center gap-2 mb-1">
+              <span id="badgeRecyclable" class="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-eco-100 text-eco-800">
+                🟢 재활용 가능
+              </span>
+              <span id="badgeCategory" class="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-blue-100 text-blue-800">
+                플라스틱류
+              </span>
+            </div>
+            <h2 id="resultItemName" class="text-2xl font-extrabold text-slate-900">투명 페트병</h2>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button id="ttsBtn" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5">
+              <i class="fa-solid fa-volume-high text-eco-600"></i> 음성 듣기
+            </button>
+            <button id="shareBtn" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5">
+              <i class="fa-solid fa-share-nodes"></i> 공유
+            </button>
+          </div>
+        </div>
+
+        <!-- Executive Summary -->
+        <div class="mt-4 bg-slate-50 rounded-xl p-4 border border-slate-100">
+          <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">한 줄 요약</p>
+          <p id="resultSummary" class="text-sm font-semibold text-slate-800 leading-relaxed">
+            내용물을 깨끗이 비우고, 비닐 라벨을 제거한 후 찌그러뜨려 뚜껑을 닫아 투명 페트병 전용 수거함에 버려주세요.
+          </p>
+        </div>
+
+        <!-- 4-Step Action Checklist -->
+        <div class="mt-6">
+          <h3 class="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+            <i class="fa-solid fa-list-check text-eco-600"></i> 올바른 분리배출 4단계 수칙
+          </h3>
+          <div id="stepsContainer" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <!-- Dynamic step items inserted here -->
+          </div>
+        </div>
+
+        <!-- Material Component Breakdown Table -->
+        <div class="mt-6">
+          <h3 class="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+            <i class="fa-solid fa-layer-group text-eco-600"></i> 구성 부품별 상세 분리 방법
+          </h3>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="bg-slate-100 text-slate-600 border-b border-slate-200">
+                  <th class="p-2.5 font-bold rounded-tl-lg">부위/구성</th>
+                  <th class="p-2.5 font-bold">예상 재질</th>
+                  <th class="p-2.5 font-bold rounded-tr-lg">배출 장소 / 방법</th>
+                </tr>
+              </thead>
+              <tbody id="materialTableBody" class="divide-y divide-slate-100 text-slate-700">
+                <!-- Dynamic component rows inserted here -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Caution Warning Notice -->
+        <div class="mt-6 bg-amber-50 border border-amber-200 rounded-xl p-4 flex gap-3 items-start">
+          <i class="fa-solid fa-triangle-exclamation text-amber-500 text-lg mt-0.5"></i>
+          <div>
+            <h4 class="text-xs font-bold text-amber-900">주의사항 & 오염 시 예외 규정</h4>
+            <p id="resultCaution" class="text-xs text-amber-800 mt-0.5 leading-normal">
+              내용물이나 기름때 등 이물질이 지워지지 않는 경우에는 재활용이 불가하므로 종량제 봉투(일반쓰레기)로 버려야 합니다.
+            </p>
+          </div>
+        </div>
+
+        <!-- Eco Tip -->
+        <div class="mt-4 bg-eco-50 border border-eco-200 rounded-xl p-4 flex gap-3 items-center">
+          <i class="fa-solid fa-seedling text-eco-600 text-lg"></i>
+          <div>
+            <h4 class="text-xs font-bold text-eco-900">알아두면 좋은 친환경 상식</h4>
+            <p id="resultEcoTip" class="text-xs text-eco-800 mt-0.5">
+              라벨이 제거된 투명 페트병은 고품질 장섬유 의류나 부직포로 재탄생합니다!
+            </p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Waste Encyclopedia Search Section -->
+    <section class="bg-white rounded-2xl p-6 shadow-md border border-slate-100">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+            <i class="fa-solid fa-book-bookmark text-eco-600"></i> 자주 찾는 분리배출 사전
+          </h3>
+          <p class="text-xs text-slate-500">사진 없이도 자주 헷갈리는 쓰레기를 검색할 수 있어요</p>
+        </div>
+      </div>
+
+      <!-- Search Input Bar -->
+      <div class="relative mb-4">
+        <input type="text" id="dictSearchInput" placeholder="예: 소주병, 컵라면, 계란껍질, 아이스팩..." class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-eco-500 focus:bg-white transition-all">
+        <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+      </div>
+
+      <div id="dictGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+        <!-- Dynamic items filled by JS -->
+      </div>
+    </section>
+
+    <!-- Recent History Section -->
+    <section id="historySection" class="bg-white rounded-2xl p-6 shadow-md border border-slate-100 hidden">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+          <i class="fa-solid fa-clock-rotate-left text-eco-600"></i> 최근 판별 기록
+        </h3>
+        <button id="clearHistoryBtn" class="text-xs text-slate-400 hover:text-red-500 transition-colors">
+          기록 삭제
+        </button>
+      </div>
+      <div id="historyList" class="flex gap-3 overflow-x-auto pb-2">
+        <!-- History Cards -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Vercel Deployment Info Modal -->
+  <div id="architectureModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+          <i class="fa-solid fa-server text-eco-600"></i> Vercel 배포 연결 구조
+        </h3>
+        <button id="closeArchitectureBtn" class="text-slate-400 hover:text-slate-600">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+      
+      <div class="text-xs text-slate-600 space-y-3 leading-relaxed">
+        <p>이 서비스는 보안을 위해 API 키를 프론트엔드에 노출하지 않고 Vercel Serverless Function을 거쳐 호출하도록 설계되었습니다.</p>
+        
+        <div class="bg-slate-900 text-slate-200 p-3 rounded-xl font-mono text-[11px] space-y-1">
+          <div class="text-eco-400 font-bold">[요청 흐름]</div>
+          <div>1. 브라우저 (index.html) ➔ 이미지 전달</div>
+          <div>2. POST /api/generate (Vercel Serverless)</div>
+          <div>3. process.env.GEMINI_API_KEY 로 Gemini API 호출</div>
+          <div>4. 브라우저로 분석 결과 JSON 반환</div>
+        </div>
+
+        <p class="bg-amber-50 text-amber-800 p-2.5 rounded-lg border border-amber-200">
+          💡 Vercel 대시보드의 [Settings] ➔ [Environment Variables]에서 <code class="font-bold">GEMINI_API_KEY</code>를 등록하고 배포하시면 바로 서버리스 함수가 작동합니다.
+        </p>
+      </div>
+
+      <div class="flex justify-end pt-2">
+        <button id="closeArchitectureBtn2" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-xl transition-colors">
+          확인
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Client Direct API Key Override Modal (Fallback testing) -->
+  <div id="settingsModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+          <i class="fa-solid fa-sliders text-eco-600"></i> 환경 설정
+        </h3>
+        <button id="closeSettingsBtn" class="text-slate-400 hover:text-slate-600">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+      
+      <p class="text-xs text-slate-500 leading-relaxed">
+        이 앱은 Vercel 환경 변수(<code class="bg-slate-100 px-1 py-0.5 rounded text-eco-700">GEMINI_API_KEY</code>) 기반의 <code class="bg-slate-100 px-1 py-0.5 rounded">/api/generate</code> 서버리스 함수로 안전하게 동작합니다.
+      </p>
+
+      <div class="bg-eco-50 p-3 rounded-xl text-xs text-eco-800 space-y-1">
+        <p class="font-bold">✅ 안전한 배포 상태 안내</p>
+        <p>클라이언트 코드에는 어떠한 API 키도 저장되지 않습니다. Vercel 대시보드에서 키를 설정하세요.</p>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2">
+        <button id="closeSettingsBtn2" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-xl transition-colors">
+          닫기
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Box -->
+  <div id="toast" class="fixed bottom-5 right-5 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 opacity-0 transition-opacity pointer-events-none z-50 text-xs">
+    <i class="fa-solid fa-circle-check text-eco-400"></i>
+    <span id="toastMsg">알림 메시지</span>
+  </div>
+
+  <!-- Footer -->
+  <footer class="bg-white border-t border-slate-200 mt-12 py-6 text-center text-xs text-slate-400">
+    <div class="max-w-4xl mx-auto px-4 space-y-2">
+      <p class="font-medium text-slate-500">🌱 깨끗한 지구를 만드는 올바른 분리배출 프로젝트</p>
+      <p>본 서비스의 판별 결과는 환경부 지침 기준이며, 지자체별 세부 규칙에 따라 다를 수 있습니다.</p>
+    </div>
+  </footer>
+
+  <script>
+    let selectedFile = null;
+    let currentAnalysisData = null;
+    let customApiKey = localStorage.getItem('gemini_user_api_key') || '';
+
+    const SAMPLE_IMAGES = {
+      pet: generateSampleSvg('투명 페트병', '#38bdf8', '🥤'),
+      noodle: generateSampleSvg('컵라면 용기', '#f97316', '🍜'),
+      battery: generateSampleSvg('폐건전지', '#eab308', '🔋'),
+      box: generateSampleSvg('택배 박스', '#a855f7', '📦')
+    };
+
+    const ECO_TIPS = [
+      "투명 페트병은 라벨을 떼고 압착하여 전용 수거함에 버리면 의류로 재활용됩니다!",
+      "국물 용기 오염이 안 지워지면 재활용이 불가능하므로 일반쓰레기 배출 대상입니다.",
+      "폐건전지와 형광등은 전용 수거함이나 주민센터 수거함을 이용해 배출해주세요.",
+      "택배 박스는 비닐 테이프와 운송장 스티커를 반드시 떼어내고 펼쳐서 버려야 합니다.",
+      "음식물 쓰레기는 동물이 먹을 수 있는지 여부가 가장 큰 기준입니다! (뼈, 껍질은 일반쓰레기)"
+    ];
+
+    const ENCYCLOPEDIA_DATA = [
+      { name: "소주병 / 맥주병", cat: "유리병", steps: "내용물 비우고 뚜껑 분리 배출 (빈용기 보증금 환급 가능)", caution: "깨진 유리는 신문지에 싸서 종량제 봉투 배출" },
+      { name: "컵라면 스티로폼", cat: "스티로폼", steps: "깨끗이 세척 후 스티로폼 수거함 배출", caution: "국물 자국이 착색되어 안 지워지면 일반쓰레기" },
+      { name: "계란 껍질", cat: "일반쓰레기", steps: "종량제 봉투에 배출", caution: "동물 사료로 사용할 수 없어 음식물 쓰레기가 아님" },
+      { name: "아이스팩 (고분자수지)", cat: "일반/전용", steps: "전용 수거함 배출 또는 종량제 통째 배출", caution: "내용물을 하수도에 버리면 환경 오염 발생" },
+      { name: "비닐 에어캡 (뽁뽁이)", cat: "비닐류", steps: "바람을 빼고 모아서 비닐 전용함에 배출", caution: "테이프 등 이물질은 제거 필수" },
+      { name: "치킨 상자 (기름 오염)", cat: "일반쓰레기", steps: "기름 오염 부분 잘라내어 종량제 배출", caution: "기름/양념이 묻은 종이는 재활용 불가" },
+      { name: "우유팩 / 음료팩", cat: "종이팩", steps: "물로 씻고 펼쳐서 말린 후 종이팩 전용함 배출", caution: "일반 폐지와 섞으면 고급 화장지 재활용 불가" }
+    ];
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const dropZone = document.getElementById('dropZone');
+      const imageInput = document.getElementById('imageInput');
+      const removeImageBtn = document.getElementById('removeImageBtn');
+      const analyzeBtn = document.getElementById('analyzeBtn');
+
+      renderEncyclopedia(ENCYCLOPEDIA_DATA);
+
+      dropZone.addEventListener('click', (e) => {
+        if (e.target.closest('#removeImageBtn')) return;
+        imageInput.click();
+      });
+
+      imageInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files[0]) handleFileSelect(e.target.files[0]);
+      });
+
+      dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('border-eco-500', 'bg-eco-50/50');
+      });
+
+      dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('border-eco-500', 'bg-eco-50/50');
+      });
+
+      dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('border-eco-500', 'bg-eco-50/50');
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) handleFileSelect(e.dataTransfer.files[0]);
+      });
+
+      removeImageBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        resetImageSelection();
+      });
+
+      document.getElementById('sampleButtons').addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-sample]');
+        if (!btn) return;
+        const key = btn.getAttribute('data-sample');
+        if (SAMPLE_IMAGES[key]) {
+          fetch(SAMPLE_IMAGES[key])
+            .then(res => res.blob())
+            .then(blob => {
+              const file = new File([blob], `${key}_sample.png`, { type: 'image/png' });
+              handleFileSelect(file);
+              showToast(`샘플 '${btn.innerText.trim()}' 이미지가 선택되었습니다.`);
+            });
+        }
+      });
+
+      analyzeBtn.addEventListener('click', () => {
+        if (selectedFile) runAnalysisProcess(selectedFile);
+      });
+
+      // Modals Logic
+      document.getElementById('showArchitectureBtn').onclick = () => document.getElementById('architectureModal').classList.remove('hidden');
+      document.getElementById('closeArchitectureBtn').onclick = () => document.getElementById('architectureModal').classList.add('hidden');
+      document.getElementById('closeArchitectureBtn2').onclick = () => document.getElementById('architectureModal').classList.add('hidden');
+
+      document.getElementById('settingsBtn').onclick = () => {
+        document.getElementById('settingsModal').classList.remove('hidden');
+      };
+      document.getElementById('closeSettingsBtn').onclick = () => document.getElementById('settingsModal').classList.add('hidden');
+      document.getElementById('closeSettingsBtn2').onclick = () => document.getElementById('settingsModal').classList.add('hidden');
+
+      document.getElementById('ttsBtn').onclick = () => {
+        if (currentAnalysisData) speakResult(currentAnalysisData);
+      };
+
+      document.getElementById('shareBtn').onclick = () => {
+        if (navigator.share) {
+          navigator.share({
+            title: '이건 어디에 버려? - AI 분리배출',
+            text: `${currentAnalysisData?.itemName || '쓰레기'} 배출법: ${currentAnalysisData?.summary || ''}`,
+            url: window.location.href,
+          }).catch(() => {});
+        } else {
+          execCopy(window.location.href);
+          showToast('링크가 클립보드에 복사되었습니다.');
+        }
+      };
+
+      document.getElementById('dictSearchInput').addEventListener('input', (e) => {
+        const query = e.target.value.toLowerCase().trim();
+        const filtered = ENCYCLOPEDIA_DATA.filter(item => 
+          item.name.toLowerCase().includes(query) || item.cat.toLowerCase().includes(query)
+        );
+        renderEncyclopedia(filtered);
+      });
+    });
+
+    function handleFileSelect(file) {
+      if (!file.type.startsWith('image/')) {
+        showToast('이미지 파일만 선택 가능합니다.');
+        return;
+      }
+      selectedFile = file;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        document.getElementById('imagePreview').src = e.target.result;
+        document.getElementById('uploadPlaceholder').classList.add('hidden');
+        document.getElementById('previewContainer').classList.remove('hidden');
+
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        analyzeBtn.disabled = false;
+        analyzeBtn.className = "w-full md:w-auto px-8 py-3.5 bg-eco-600 hover:bg-eco-700 text-white font-extrabold rounded-xl shadow-lg hover:shadow-eco-500/30 transition-all flex items-center justify-center gap-2 text-base mx-auto cursor-pointer";
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function resetImageSelection() {
+      selectedFile = null;
+      document.getElementById('imageInput').value = '';
+      document.getElementById('uploadPlaceholder').classList.remove('hidden');
+      document.getElementById('previewContainer').classList.add('hidden');
+
+      const analyzeBtn = document.getElementById('analyzeBtn');
+      analyzeBtn.disabled = true;
+      analyzeBtn.className = "w-full md:w-auto px-8 py-3.5 bg-slate-300 text-slate-500 font-bold rounded-xl shadow-lg cursor-not-allowed transition-all flex items-center justify-center gap-2 text-base mx-auto";
+    }
+
+    async function runAnalysisProcess(file) {
+      const loadingSection = document.getElementById('loadingSection');
+      const resultSection = document.getElementById('resultSection');
+
+      loadingSection.classList.remove('hidden');
+      resultSection.classList.add('hidden');
+      loadingSection.scrollIntoView({ behavior: 'smooth' });
+
+      document.getElementById('ecoTipText').innerText = ECO_TIPS[Math.floor(Math.random() * ECO_TIPS.length)];
+
+      try {
+        const base64Data = await fileToBase64(file);
+        const mimeType = file.type || 'image/jpeg';
+
+        // Vercel Serverless Function `/api/generate` 호출
+        const response = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageBase64: base64Data, mimeType: mimeType })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `서버 응답 오류 (${response.status})`);
+        }
+
+        const analysisResult = await response.json();
+
+        currentAnalysisData = analysisResult;
+        renderAnalysisResults(analysisResult);
+        saveToHistory(analysisResult, document.getElementById('imagePreview').src);
+
+        loadingSection.classList.add('hidden');
+        resultSection.classList.remove('hidden');
+        resultSection.scrollIntoView({ behavior: 'smooth' });
+
+      } catch (err) {
+        console.error('Analysis Error:', err);
+        loadingSection.classList.add('hidden');
+        showToast(err.message || '분석 중 오류가 발생했습니다.');
+      }
+    }
+
+    function renderAnalysisResults(data) {
+      document.getElementById('resultItemName').innerText = data.itemName || '분석된 쓰레기';
+      document.getElementById('resultSummary').innerText = data.summary || '';
+      document.getElementById('resultCaution').innerText = data.caution || '이물질이 잔류할 경우 일반쓰레기로 배출하세요.';
+      document.getElementById('resultEcoTip').innerText = data.ecoTip || '올바른 분리수거는 환경 보호의 첫걸음입니다!';
+
+      const badgeRecyclable = document.getElementById('badgeRecyclable');
+      const badgeCategory = document.getElementById('badgeCategory');
+      const categoryHeaderBg = document.getElementById('categoryHeaderBg');
+
+      badgeCategory.innerText = data.category || '종류 미상';
+
+      if (data.recyclableType === 'RECYCLABLE') {
+        badgeRecyclable.innerText = '🟢 재활용 가능';
+        badgeRecyclable.className = 'px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-eco-100 text-eco-800';
+        categoryHeaderBg.className = 'absolute top-0 left-0 w-full h-3 bg-eco-500';
+      } else if (data.recyclableType === 'CONDITIONAL') {
+        badgeRecyclable.innerText = '🟡 세척 후 재활용';
+        badgeRecyclable.className = 'px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-amber-100 text-amber-800';
+        categoryHeaderBg.className = 'absolute top-0 left-0 w-full h-3 bg-amber-500';
+      } else if (data.recyclableType === 'SPECIAL') {
+        badgeRecyclable.innerText = '🔵 전용 수거함/특수배출';
+        badgeRecyclable.className = 'px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-blue-100 text-blue-800';
+        categoryHeaderBg.className = 'absolute top-0 left-0 w-full h-3 bg-blue-500';
+      } else {
+        badgeRecyclable.innerText = '🔴 일반쓰레기 배출';
+        badgeRecyclable.className = 'px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-rose-100 text-rose-800';
+        categoryHeaderBg.className = 'absolute top-0 left-0 w-full h-3 bg-rose-500';
+      }
+
+      const stepsContainer = document.getElementById('stepsContainer');
+      stepsContainer.innerHTML = '';
+      (data.steps || []).forEach((stepText, idx) => {
+        const stepDiv = document.createElement('div');
+        stepDiv.className = 'bg-slate-50 border border-slate-200/80 rounded-xl p-3 flex items-start gap-2.5';
+        stepDiv.innerHTML = `
+          <div class="w-6 h-6 rounded-lg bg-eco-100 text-eco-700 flex-shrink-0 flex items-center justify-center font-extrabold text-xs">
+            ${idx + 1}
+          </div>
+          <p class="text-xs font-medium text-slate-700 mt-0.5 leading-snug">${stepText}</p>
+        `;
+        stepsContainer.appendChild(stepDiv);
+      });
+
+      const materialTableBody = document.getElementById('materialTableBody');
+      materialTableBody.innerHTML = '';
+      (data.materialBreakdown || []).forEach((item) => {
+        const tr = document.createElement('tr');
+        tr.className = 'border-b border-slate-100 hover:bg-slate-50';
+        tr.innerHTML = `
+          <td class="p-2.5 font-bold text-slate-800">${item.part || '-'}</td>
+          <td class="p-2.5 text-slate-600">${item.material || '-'}</td>
+          <td class="p-2.5"><span class="px-2 py-0.5 bg-slate-100 font-semibold rounded text-slate-700">${item.method || '-'}</span></td>
+        `;
+        materialTableBody.appendChild(tr);
+      });
+    }
+
+    function renderEncyclopedia(list) {
+      const dictGrid = document.getElementById('dictGrid');
+      dictGrid.innerHTML = '';
+      if (list.length === 0) {
+        dictGrid.innerHTML = '<p class="col-span-2 text-center text-slate-400 py-4">검색 결과가 없습니다.</p>';
+        return;
+      }
+      list.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5';
+        card.innerHTML = `
+          <div class="flex items-center justify-between">
+            <span class="font-extrabold text-slate-800 text-xs">${item.name}</span>
+            <span class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-eco-100 text-eco-800">${item.cat}</span>
+          </div>
+          <p class="text-[11px] text-slate-600 font-medium">📋 ${item.steps}</p>
+          <p class="text-[10px] text-amber-700 bg-amber-50 p-1.5 rounded">⚠️ ${item.caution}</p>
+        `;
+        dictGrid.appendChild(card);
+      });
+    }
+
+    function saveToHistory(data, imageSrc) {
+      try {
+        let history = JSON.parse(localStorage.getItem('waste_scan_history') || '[]');
+        history.unshift({
+          data: data,
+          image: imageSrc,
+          timestamp: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+        });
+        history = history.slice(0, 8);
+        localStorage.setItem('waste_scan_history', JSON.stringify(history));
+        renderHistory();
+      } catch (e) {}
+    }
+
+    function renderHistory() {
+      const historyList = document.getElementById('historyList');
+      const historySection = document.getElementById('historySection');
+      const history = JSON.parse(localStorage.getItem('waste_scan_history') || '[]');
+
+      if (history.length === 0) {
+        historySection.classList.add('hidden');
+        return;
+      }
+
+      historySection.classList.remove('hidden');
+      historyList.innerHTML = '';
+
+      history.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'flex-shrink-0 w-28 bg-slate-50 border border-slate-200 rounded-xl p-2 cursor-pointer hover:border-eco-500 transition-colors text-center space-y-1';
+        div.innerHTML = `
+          <img src="${item.image}" class="w-full h-16 object-cover rounded-lg">
+          <p class="text-[11px] font-bold text-slate-800 truncate">${item.data.itemName}</p>
+          <p class="text-[9px] text-slate-400">${item.timestamp}</p>
+        `;
+        div.onclick = () => {
+          currentAnalysisData = item.data;
+          renderAnalysisResults(item.data);
+          document.getElementById('resultSection').classList.remove('hidden');
+          document.getElementById('resultSection').scrollIntoView({ behavior: 'smooth' });
+        };
+        historyList.appendChild(div);
+      });
+
+      document.getElementById('clearHistoryBtn').onclick = () => {
+        localStorage.removeItem('waste_scan_history');
+        renderHistory();
+      };
+    }
+
+    function speakResult(data) {
+      if (!('speechSynthesis' in window)) {
+        showToast('이 브라우저는 음성 안내를 지원하지 않습니다.');
+        return;
+      }
+      window.speechSynthesis.cancel();
+      const text = `${data.itemName}. ${data.summary}. 분리배출 단계. ${data.steps.join('. ')}. 주의사항. ${data.caution}`;
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'ko-KR';
+      window.speechSynthesis.speak(utterance);
+      showToast('음성 안내를 시작합니다.');
+    }
+
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = error => reject(error);
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function generateSampleSvg(label, color, emoji) {
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300">
+        <rect width="300" height="300" fill="${color}" opacity="0.15" rx="20"/>
+        <circle cx="150" cy="130" r="60" fill="${color}" opacity="0.2"/>
+        <text x="150" y="145" font-size="60" text-anchor="middle">${emoji}</text>
+        <text x="150" y="230" font-size="20" font-weight="bold" fill="#334155" text-anchor="middle">${label}</text>
+      </svg>`;
+      return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
+    }
+
+    function execCopy(text) {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toastMsg').innerText = msg;
+      toast.classList.remove('opacity-0', 'pointer-events-none');
+      setTimeout(() => toast.classList.add('opacity-0', 'pointer-events-none'), 3000);
+    }
+
+    renderHistory();
+  </script>
+</body>
+</html>
